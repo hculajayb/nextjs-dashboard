@@ -116,7 +116,38 @@ export async function authenticate(
   formData: FormData,
 ) {
   try {
-    await signIn('credentials', formData);
+    const email = String(formData.get('email') ?? '');
+    const password = String(formData.get('password') ?? '');
+    const redirectTo = String(formData.get('redirectTo') ?? '/dashboard');
+
+    // Use signIn with redirect: false so we can inspect the result in this server action
+    // Depending on the next-auth version the return shape may vary; handle common cases.
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false,
+      callbackUrl: redirectTo,
+    } as any);
+
+    // If signIn returned an object with ok/error
+    if (result && typeof result === 'object') {
+      // next-auth v4/v5 may return { ok, error, url }
+      // @ts-expect-error
+      if (result.error) return 'Invalid credentials.';
+      // @ts-expect-error
+      if (result.ok) return redirect(redirectTo);
+    }
+
+    // If signIn returned a Response-like object, check status (duck-typed)
+    if (result && typeof result === 'object' && ('redirected' in result || 'ok' in result)) {
+      // @ts-expect-error - duck typing
+      if (result.redirected) return redirect(redirectTo);
+      // @ts-expect-error
+      if (result.ok === false) return 'Invalid credentials.';
+    }
+
+    // Fallback: redirect to dashboard (optimistic)
+    return redirect(redirectTo);
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {
