@@ -35,5 +35,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: ['/dashboard/:path*'],
-  runtime: 'edge',
+  // Next.js (v15) requires the experimental runtime name during production build
+  // when using edge functions in middleware
+  runtime: 'experimental-edge',
 };
